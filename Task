@@ -1,0 +1,211 @@
+1.Install the required packages-
+
+composer require kyon147/laravel-shopify
+npm install @shopify/Polaris
+
+2.Controller-
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\ProductCreateRequest;
+use Illuminate\Http\Request;
+use Shopify\Clients\Rest;
+use Shopify\Context;
+use Shopify\Auth\Scopes;
+
+class ShopifyProductController extends Controller
+{
+    public function create()
+    {
+        return view('products.create');
+    }
+
+    public function store(ProductCreateRequest $request)
+    {
+        try {
+            $shop = auth()->user();
+            
+            $client = new Rest($shop->shopify_domain, $shop->shopify_token);
+
+            $productData = [
+                'product' => [
+                    'title' => $request->input('title'),
+                    'body_html' => $request->input('description'),
+                    'product_type' => $request->input('product_type'),
+                    'variants' => [
+                        [
+                            'price' => $request->input('price'),
+                        ]
+                    ]
+                ]
+            ];
+
+            $response = $client->post('products', $productData);
+
+            return redirect()->back()->with('success', 'Product created successfully!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Failed to create product: ' . $e->getMessage());
+        }
+    }
+}
+
+
+
+3. Route-
+
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ShopifyProductController;
+
+Route::get('/products/create', [ShopifyProductController::class, 'create'])
+    ->name('products.create');
+
+Route::post('/products', [ShopifyProductController::class, 'store'])
+    ->name('products.store');
+4. Form Validation Request-
+
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class ProductCreateRequest extends FormRequest
+{
+    public function rules()
+    {
+        return [
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'price' => 'required|numeric|min:0',
+            'product_type' => 'nullable|string|max:255'
+        ];
+    }
+
+    public function messages()
+    {
+        return [
+            'title.required' => 'Product title is required',
+            'price.required' => 'Price is required',
+            'price.numeric' => 'Price must be a valid number',
+            'price.min' => 'Price cannot be negative'
+        ];
+    }
+}
+
+
+
+
+
+5. Blade View-
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Shopify Product</title>
+    <link href="{{ asset('css/polaris.min.css') }}" rel="stylesheet">
+    @vite('resources/js/app.js')
+</head>
+<body>
+    <div id="app">
+        <div class="Polaris-Page">
+            <div class="Polaris-Page-Header">
+                <h1 class="Polaris-Header-Title">Create Shopify Product</h1>
+            </div>
+            
+            @if(session('success'))
+                <div class="Polaris-Banner Polaris-Banner--successFilled">
+                    {{ session('success') }}
+                </div>
+            @endif
+            
+            @if(session('error'))
+                <div class="Polaris-Banner Polaris-Banner--destructive">
+                    {{ session('error') }}
+                </div>
+            @endif
+
+            <form method="POST" action="{{ route('products.store') }}" class="Polaris-Form">
+                @csrf
+                
+                <div class="Polaris-FormLayout">
+                    <div class="Polaris-FormLayout-Item">
+                        <label class="Polaris-Label" for="title">Product Title</label>
+                        <input 
+                            type="text" 
+                            name="title" 
+                            id="title"
+                            class="Polaris-TextField__Input {{ $errors->has('title') ? 'Polaris-TextField--error' : '' }}"
+                            value="{{ old('title') }}"
+                        >
+                        @error('title')
+                            <span class="Polaris-TextField__Error">{{ $message }}</span>
+                        @enderror
+                    </div>
+
+                    <div class="Polaris-FormLayout-Item">
+                        <label class="Polaris-Label" for="description">Description</label>
+                        <textarea 
+                            name="description" 
+                            id="description"
+                            class="Polaris-TextField__Input"
+                        >{{ old('description') }}</textarea>
+                    </div>
+
+                    <div class="Polaris-FormLayout-Item">
+                        <label class="Polaris-Label" for="price">Price</label>
+                        <input 
+                            type="number" 
+                            name="price" 
+                            id="price"
+                            step="0.01"
+                            class="Polaris-TextField__Input {{ $errors->has('price') ? 'Polaris-TextField--error' : '' }}"
+                            value="{{ old('price') }}"
+                        >
+                        @error('price')
+                            <span class="Polaris-TextField__Error">{{ $message }}</span>
+                        @enderror
+                    </div>
+
+                    <div class="Polaris-FormLayout-Item">
+                        <label class="Polaris-Label" for="product_type">Product Type</label>
+                        <input 
+                            type="text" 
+                            name="product_type" 
+                            id="product_type"
+                            class="Polaris-TextField__Input"
+                            value="{{ old('product_type') }}"
+                        >
+                    </div>
+
+                    <button type="submit" class="Polaris-Button Polaris-Button--primary">
+                        Create Product
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
+
+6. Vite Configuration
+
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+    plugins: [
+        laravel({
+            input: ['resources/css/app.css', 'resources/js/app.js'],
+            refresh: true,
+        }),
+        react(),
+    ],
+});
+Vite is a fast and modern frontend build tool that enables developers to swiftly compile, bundle, and optimize JavaScript, CSS
+and other components. It allows speedier development, easier asset management, and better performance for Laravel projects than earlier technologies like as Webpack.
+It makes using modern frontend technologies such as React, TypeScript, and CSS preprocessors considerably easier and more efficient.
+
